@@ -1,7 +1,20 @@
 <template>
-  <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
+  <button v-if="showLoader" type="button" class="bg-rose-600" disabled>
+    <svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
+      <!-- ... -->
+      <circle class="opacity-25" cx="36" cy="36" r="10" stroke="currentColor" stroke-width="4">
+      </circle>
+      <path class="opacity-75" fill="currentColor"
+        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042
+        1.135 5.824 3 7.938l3-2.647z">
+      </path>
+
+  </svg>
+  Loading
+</button>
+  <div v-else class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
     <div class="container">
-      <div class="w-full my-4"></div>
+     <div class="w-full my-4"></div>
       <section>
         <div class="flex">
           <div class="max-w-xs">
@@ -19,6 +32,9 @@
                       focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
                 placeholder="Например DOGE"
               />
+              <div v-if="showHint.length" class="container">
+                <button v-for="(hint, idx) in showHint" :key="idx">{{hint.FullName}}</button>
+              </div>
             </div>
           </div>
         </div>
@@ -159,8 +175,37 @@ export default {
       tickers: [],
       sel: null,
       graph: [],
+      coinList: [],
+      showLoader: true,
     };
   },
+
+  computed: {
+    showHint() {
+      if (this.ticker.length > 0) {
+        return this.coinList
+          .filter((coin) => coin.FullName.includes(this.ticker) || coin.Id.includes(this.ticker));
+      }
+      return [];
+    },
+  },
+
+  async created() {
+    const resCoinList = await fetch('https://min-api.cryptocompare.com/data/all/coinlist');
+    const dataCoinList = await resCoinList.json();
+    const { Data } = dataCoinList;
+    const arrayCoinList = Object.values(Data);
+    // eslint-disable-next-line arrow-body-style
+    const newarrayCoinList = arrayCoinList.map((elem) => {
+      return {
+        Id: elem.Id,
+        FullName: elem.FullName,
+      };
+    });
+    this.coinList = newarrayCoinList;
+    this.showLoader = false;
+  },
+
   methods: {
     add() {
       const newTicker = {
@@ -168,6 +213,7 @@ export default {
         price: '-',
       };
       this.tickers.push(newTicker);
+
       setInterval(async () => {
         const res = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name}&tsyms=USD&api_key60d4fe33b8d55629de05917bc8bec0193b17f839679f5082477473f65b08840c`);
         const data = await res.json();
