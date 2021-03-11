@@ -1,19 +1,16 @@
 <template>
-  <button v-if="showLoader" type="button" class="bg-rose-600" disabled>
-    <svg class="animate-spin h-5 w-5 mr-3" viewBox="0 0 24 24">
-      <!-- ... -->
-      <circle class="opacity-25" cx="36" cy="36" r="10" stroke="currentColor" stroke-width="4">
-      </circle>
-      <path class="opacity-75" fill="currentColor"
-        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042
-        1.135 5.824 3 7.938l3-2.647z">
-      </path>
+  <div class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
+     <div v-if="showLoader" class="fixed w-100 h-100 opacity-80 bg-purple-800 inset-0 z-50 flex
+     items-center justify-center">
+    <svg class="animate-spin -ml-1 mr-3 h-12 w-12 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+      <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor"
+      stroke-width="4"></circle>
+      <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0
+      12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+    </svg>
+  </div>
 
-  </svg>
-  Loading
-</button>
-  <div v-else class="container mx-auto flex flex-col items-center bg-gray-100 p-4">
-    <div class="container">
+    <div v-else class="container">
      <div class="w-full my-4"></div>
       <section>
         <div class="flex">
@@ -32,9 +29,17 @@
                       focus:ring-gray-500 focus:border-gray-500 sm:text-sm rounded-md"
                 placeholder="Например DOGE"
               />
-              <div v-if="showHint.length" class="container">
-                <button v-for="(hint, idx) in showHint" :key="idx">{{hint.FullName}}</button>
-              </div>
+              <div class="flex bg-white shadow-md p-1 rounded-md shadow-md flex-wrap">
+            <span
+              v-for="hint in editShowHint" :key="hint.id"
+              @click="addTickerHint"
+              class="inline-flex items-center px-2 m-1 rounded-md text-xs font-medium
+              bg-gray-300 text-gray-800 cursor-pointer">
+              {{ hint.FullName }}
+            </span>
+          </div>
+          <div v-if="showWarning" class="text-sm text-red-600">Такой тикер уже добавлен</div>
+
             </div>
           </div>
         </div>
@@ -177,14 +182,22 @@ export default {
       graph: [],
       coinList: [],
       showLoader: true,
+      showWarning: false,
     };
   },
 
   computed: {
+    editShowHint() {
+      if (this.showHint.length > 4) {
+        return this.showHint.slice(0, 4);
+      }
+      return this.showHint;
+    },
     showHint() {
       if (this.ticker.length > 0) {
         return this.coinList
-          .filter((coin) => coin.FullName.includes(this.ticker) || coin.Id.includes(this.ticker));
+          .filter((coin) => coin.FullName.toLowerCase()
+            .includes(this.ticker.toLowerCase()) || coin.Id.includes(this.ticker));
       }
       return [];
     },
@@ -208,22 +221,35 @@ export default {
 
   methods: {
     add() {
-      const newTicker = {
-        name: this.ticker,
-        price: '-',
-      };
-      this.tickers.push(newTicker);
+      if (!this.showWarning) {
+        const newTicker = {
+          name: this.ticker.toUpperCase(),
+          price: '-',
+        };
+        this.tickers.push(newTicker);
 
-      setInterval(async () => {
-        const res = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name}&tsyms=USD&api_key60d4fe33b8d55629de05917bc8bec0193b17f839679f5082477473f65b08840c`);
-        const data = await res.json();
-        this.tickers.find((elem) => elem.name === newTicker.name)
-          .price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-        if (this.sel?.name === newTicker.name) {
-          this.graph.push(data.USD);
-        }
-      }, 5000);
-      this.ticker = '';
+        setInterval(async () => {
+          const res = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name}&tsyms=USD&api_key60d4fe33b8d55629de05917bc8bec0193b17f839679f5082477473f65b08840c`);
+          const data = await res.json();
+          this.tickers.find((elem) => elem.name === newTicker.name)
+            .price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
+          if (this.sel?.name === newTicker.name) {
+            this.graph.push(data.USD);
+          }
+        }, 5000);
+        this.ticker = '';
+      }
+    },
+
+    addTickerHint(event) {
+      this.ticker = event.target.textContent;
+      const reg = /\((.+)\)/gm;
+      const newTicker = this.ticker.match(reg).join().replace('(', '').replace(')', '');
+      this.showWarning = this.tickers.find((t) => t.name === newTicker);
+      console.log(this.showWarning);
+      if (!this.showWarning) {
+        this.ticker = newTicker;
+      }
     },
 
     btnDelHandler(elem) {
