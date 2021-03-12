@@ -204,6 +204,7 @@ export default {
   },
 
   async created() {
+    const tickersData = localStorage.getItem('cryptonimicon-list');
     const resCoinList = await fetch('https://min-api.cryptocompare.com/data/all/coinlist');
     const dataCoinList = await resCoinList.json();
     const { Data } = dataCoinList;
@@ -215,11 +216,29 @@ export default {
         FullName: elem.FullName,
       };
     });
+    if (tickersData) {
+      this.tickers = JSON.parse(tickersData);
+      this.tickers.forEach((ticker) => {
+        this.sunscribeToUpdates(ticker.name);
+      });
+    }
     this.coinList = newarrayCoinList;
     this.showLoader = false;
   },
 
   methods: {
+    sunscribeToUpdates(tickerName) {
+      setInterval(async () => {
+        const res = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key60d4fe33b8d55629de05917bc8bec0193b17f839679f5082477473f65b08840c`);
+        const data = await res.json();
+        this.tickers.find((elem) => elem.name === tickerName)
+          .price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
+        if (this.sel?.name === tickerName.name) {
+          this.graph.push(data.USD);
+        }
+      }, 5000);
+    },
+
     add() {
       if (!this.showWarning) {
         const newTicker = {
@@ -227,16 +246,8 @@ export default {
           price: '-',
         };
         this.tickers.push(newTicker);
-
-        setInterval(async () => {
-          const res = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${newTicker.name}&tsyms=USD&api_key60d4fe33b8d55629de05917bc8bec0193b17f839679f5082477473f65b08840c`);
-          const data = await res.json();
-          this.tickers.find((elem) => elem.name === newTicker.name)
-            .price = data.USD > 1 ? data.USD.toFixed(2) : data.USD.toPrecision(2);
-          if (this.sel?.name === newTicker.name) {
-            this.graph.push(data.USD);
-          }
-        }, 5000);
+        localStorage.setItem('cryptonimicon-list', JSON.stringify(this.tickers));
+        this.sunscribeToUpdates(newTicker.name);
         this.ticker = '';
       }
     },
