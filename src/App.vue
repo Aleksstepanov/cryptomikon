@@ -72,9 +72,30 @@
       </section>
       <template v-if="tickers.length">
         <hr class="w-full border-t border-gray-600 my-4" />
+        <div>
+          <button class=" mx-2 my-4 inline-flex items-center py-2 px-4 border border-transparent
+                 shadow-sm text-sm leading-4 font-medium rounded-full text-white
+                 bg-gray-600 hover:bg-gray-700 transition-colors duration-300
+                 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                 v-if="page > 1"
+                 @click="page = page - 1"
+                 >Назад
+          </button>
+          <button class="mx-2 my-4 inline-flex items-center py-2 px-4 border border-transparent
+                 shadow-sm text-sm leading-4 font-medium rounded-full text-white
+                 bg-gray-600 hover:bg-gray-700 transition-colors duration-300
+                 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-gray-500"
+                 v-if="hasNextPage"
+                 @click="page = page + 1"
+                 >Вперед
+          </button>
+          <div class="mx-2">Фильтр: <input v-model="filter"/>
+          </div>
+        </div>
+        <hr class="w-full border-t border-gray-600 my-4" />
         <dl class="mt-5 grid grid-cols-1 gap-5 sm:grid-cols-3">
           <div
-            v-for="elem in tickers"
+            v-for="elem in filteredTickers()"
             :key="elem.name"
             @click="select(elem)"
             :class="{
@@ -183,6 +204,9 @@ export default {
       coinList: [],
       showLoader: true,
       showWarning: false,
+      page: 1,
+      filter: '',
+      hasNextPage: true,
     };
   },
 
@@ -204,6 +228,16 @@ export default {
   },
 
   async created() {
+    const windowData = Object.fromEntries(new URL(window.location).searchParams.entries());
+
+    if (windowData.filter) {
+      this.filter = windowData.filter;
+    }
+
+    if (windowData.page) {
+      this.page = windowData.page;
+    }
+
     const tickersData = localStorage.getItem('cryptonimicon-list');
     const resCoinList = await fetch('https://min-api.cryptocompare.com/data/all/coinlist');
     const dataCoinList = await resCoinList.json();
@@ -227,6 +261,16 @@ export default {
   },
 
   methods: {
+    filteredTickers() {
+      const start = (this.page - 1) * 6;
+      const end = this.page * 6;
+      const filteredTickers = this.tickers.filter((ticker) => ticker.name.includes(this.filter));
+
+      this.hasNextPage = filteredTickers.length > end;
+
+      return filteredTickers.slice(start, end);
+    },
+
     sunscribeToUpdates(tickerName) {
       setInterval(async () => {
         const res = await fetch(`https://min-api.cryptocompare.com/data/price?fsym=${tickerName}&tsyms=USD&api_key60d4fe33b8d55629de05917bc8bec0193b17f839679f5082477473f65b08840c`);
@@ -249,6 +293,7 @@ export default {
         localStorage.setItem('cryptonimicon-list', JSON.stringify(this.tickers));
         this.sunscribeToUpdates(newTicker.name);
         this.ticker = '';
+        this.filter = '';
       }
     },
 
@@ -256,8 +301,11 @@ export default {
       this.ticker = event.target.textContent;
       const reg = /\((.+)\)/gm;
       const newTicker = this.ticker.match(reg).join().replace('(', '').replace(')', '');
-      this.showWarning = this.tickers.find((t) => t.name === newTicker);
-      console.log(this.showWarning);
+
+      if (this.tickers.find((t) => t.name === newTicker)) {
+        this.showWarning = true;
+      } else this.showWarning = false;
+
       if (!this.showWarning) {
         this.ticker = newTicker;
       }
@@ -277,6 +325,28 @@ export default {
     select(elem) {
       this.sel = elem;
       this.graph = [];
+    },
+  },
+
+  watch: {
+    filter() {
+      this.page = 1;
+
+      const { pathname } = window.location;
+      window.history.pushState(
+        null,
+        document.title,
+        `${pathname}?filter=${this.filter}&page=${this.page}`,
+      );
+    },
+
+    page() {
+      const { pathname } = window.location;
+      window.history.pushState(
+        null,
+        document.title,
+        `${pathname}?filter=${this.filter}&page=${this.page}`,
+      );
     },
   },
 };
